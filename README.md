@@ -1,6 +1,6 @@
 # Custom Range-based ID Generator for Go
 
-`crid` is a range-based, Snowflake-style distributed ID generator for Go. It produces
+`crid` is a range-based distributed ID generator for Go. It produces
 unique 63-bit integer IDs by combining a timestamp with a sequence number drawn from a
 block reserved out of a shared registry.
 
