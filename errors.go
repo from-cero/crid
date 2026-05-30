@@ -18,6 +18,9 @@ var (
 	// ErrInvalidBlockSize is returned when cfg.blockSize is not a positive integer.
 	ErrInvalidBlockSize = errors.New("block size must be positive")
 
+	// ErrInvalidThreshold is returned when cfg.threshold exceeds cfg.blockSize.
+	ErrInvalidThreshold = errors.New("threshold must not exceed block size")
+
 	// ErrNilRegistry is returned when New is called with a nil Registry.
 	ErrNilRegistry = errors.New("registry cannot be nil")
 
@@ -35,8 +38,4 @@ var (
 	// ErrInvalidSequence is returned when the sequence number acquired from the registry
 	// is out of range for the given format.sequenceBits.
 	ErrInvalidSequence = errors.New("invalid sequence number for given format")
-
-	// ErrAllocationRefillFailed is returned when the generator fails
-	// to refill an exhausted allocation after performing the refill action.
-	ErrAllocationRefillFailed = errors.New("allocation can not refill after performing refill action")
 )

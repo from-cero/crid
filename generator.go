@@ -15,16 +15,19 @@ import (
 // generated, so IDs are not strictly ordered by generation time.
 // A Node is safe for concurrent use by multiple goroutines.
 type Node struct {
-	mu    sync.Mutex
-	ts    int64
-	seq   int64
-	limit int64
+	mu            sync.Mutex
+	ts            int64
+	seq           int64
+	limit         int64
+	preAlloc      *allocation
+	preAllocating bool
 
 	cfg       config
 	comF      compiledFormat
 	reg       registry.Registry
 	epochS    int64
 	blockSize int64
+	threshold int64
 }
 
 // New creates a Node backed by reg, applying any options on top of the defaults.
@@ -33,23 +36,24 @@ func New(reg registry.Registry, opts ...Option) (*Node, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
-	comF := cfg.format.compileFormat()
-	epochS := cfg.epoch.Unix()
-	blockSize := cfg.blockSize
 
 	if reg == nil {
 		return nil, ErrNilRegistry
 	}
 
 	return &Node{
-		seq:   0,
-		limit: -1,
+		ts:            0,
+		seq:           0,
+		limit:         -1,
+		preAlloc:      nil,
+		preAllocating: false,
 
 		cfg:       cfg,
-		comF:      comF,
+		comF:      cfg.format.compileFormat(),
 		reg:       reg,
-		epochS:    epochS,
-		blockSize: blockSize,
+		epochS:    cfg.epoch.Unix(),
+		blockSize: cfg.blockSize,
+		threshold: cfg.threshold,
 	}, nil
 }
 
@@ -58,6 +62,15 @@ func New(reg registry.Registry, opts ...Option) (*Node, error) {
 func (n *Node) Generate(ctx context.Context) (ID, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
+
+	// pre-allocate range when remaining exceeds threshold
+	remaining := n.limit - n.seq + 1
+	if n.limit >= 0 && remaining < n.threshold {
+		if n.preAlloc == nil && !n.preAllocating {
+			n.preAllocating = true
+			go n.prefill(context.Background())
+		}
+	}
 
 	// allocated range is exhausted
 	if n.seq > n.limit {
@@ -69,10 +82,6 @@ func (n *Node) Generate(ctx context.Context) (ID, error) {
 	if n.seq < 0 || n.seq > n.comF.maxSeq {
 		return 0, ErrInvalidSequence
 	}
-	// check whether n.limit still be behind n.seq
-	if n.seq > n.limit {
-		return 0, ErrAllocationRefillFailed
-	}
 
 	var idI64 int64
 	idI64 |= n.ts << n.comF.shiftTimestamp
@@ -82,26 +91,67 @@ func (n *Node) Generate(ctx context.Context) (ID, error) {
 }
 
 func (n *Node) refill(ctx context.Context) error {
+	if n.preAlloc != nil {
+		// this algorithm focuses on the ID uniqueness and correctness
+		// so the change stale ts when updating n.ts with preAlloc.ts is accepted
+		n.ts = n.preAlloc.ts
+		n.seq = n.preAlloc.start
+		n.limit = min(n.preAlloc.end-1, n.comF.maxSeq)
+		n.preAlloc = nil
+		return nil
+	}
+
+	alloc, err := n.allocate(ctx)
+	if err != nil {
+		return fmt.Errorf("allocate block failed: %w", err)
+	}
+
+	n.ts = alloc.ts
+	n.seq = alloc.start
+	n.limit = min(alloc.end-1, n.comF.maxSeq)
+	return nil
+}
+
+func (n *Node) prefill(ctx context.Context) {
+	alloc, err := n.allocate(ctx)
+	if err != nil {
+		n.mu.Lock()
+		n.preAllocating = false
+		n.mu.Unlock()
+		return // ignore error
+	}
+
+	// need lock before read/write to Node
+	// because prefill run on a separate goroutine
+	// and may update preAlloc while Generate is running
+	n.mu.Lock()
+	n.preAlloc = alloc
+	n.preAllocating = false
+	n.mu.Unlock()
+}
+
+func (n *Node) allocate(ctx context.Context) (*allocation, error) {
 	now := n.nowS()
 	if now < 0 {
-		return ErrClockBeforeEpoch
+		return nil, ErrClockBeforeEpoch
 	}
 	if now > n.comF.maxTimestamp {
-		return ErrTimestampOverflow
+		return nil, ErrTimestampOverflow
 	}
 
 	start, err := n.reg.Allocate(ctx, now, n.blockSize)
 	if err != nil {
-		return fmt.Errorf("could not refill allocation: %w", err)
+		return nil, fmt.Errorf("could not refill allocation: %w", err)
 	}
 	if start > n.comF.maxSeq {
-		return ErrSequenceOverflow
+		return nil, ErrSequenceOverflow
 	}
 
-	n.ts = now
-	n.seq = start
-	n.limit = min(start+n.blockSize-1, n.comF.maxSeq)
-	return nil
+	return &allocation{
+		ts:    now,
+		start: start,
+		end:   start + n.blockSize,
+	}, nil
 }
 
 func (n *Node) nowS() int64 {
