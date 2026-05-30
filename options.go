@@ -64,7 +64,7 @@ func (c *config) validate() error {
 	if c.epoch.After(time.Now()) {
 		errs = append(errs, ErrEpochInFuture)
 	}
-	if c.blockSize < 1 {
+	if c.blockSize < 1 || c.blockSize > (int64(1)<<c.format.sequenceBits) {
 		errs = append(errs, ErrInvalidBlockSize)
 	}
 	if c.threshold > c.blockSize {

@@ -15,8 +15,9 @@ var (
 	// after the current system time at the time of Node creation.
 	ErrEpochInFuture = errors.New("epoch in future")
 
-	// ErrInvalidBlockSize is returned when cfg.blockSize is not a positive integer.
-	ErrInvalidBlockSize = errors.New("block size must be positive")
+	// ErrInvalidBlockSize is returned when cfg.blockSize is not a positive integer
+	// or exceeds the maximum sequence number for the given format (2^format.sequenceBits).
+	ErrInvalidBlockSize = errors.New("block size must be positive and <= max sequence number for the given format")
 
 	// ErrInvalidThreshold is returned when cfg.threshold exceeds cfg.blockSize.
 	ErrInvalidThreshold = errors.New("threshold must not exceed block size")
