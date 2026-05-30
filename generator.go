@@ -63,7 +63,7 @@ func (n *Node) Generate(ctx context.Context) (ID, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	// pre-allocate range when remaining exceeds threshold
+	// pre-allocate the next range once remaining drops below threshold
 	remaining := n.limit - n.seq + 1
 	if n.limit >= 0 && remaining < n.threshold {
 		if n.preAlloc == nil && !n.preAllocating {
