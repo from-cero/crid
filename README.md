@@ -15,8 +15,9 @@ coordination with one another beyond the registry they share.
   from memory, hitting the registry only once per block.
 - Asynchronous pre-allocation: the next block is reserved in the background before the
   current one runs out, so steady-state generation does not block on the registry.
-- Pluggable registry: an in-memory implementation ships with the library; any backend
-  that satisfies the `registry.Registry` interface works.
+- Pluggable registry: an in-memory implementation ships with the library, a durable
+  Postgres-backed one is available under `registry/postgres`, and any backend that
+  satisfies the `registry.Registry` interface works.
 - Configurable bit layout, epoch, block size, and pre-allocation threshold.
 
 ## Install
@@ -174,9 +175,67 @@ type Registry interface {
 ```
 
 The bundled `registry/memory` implementation is suitable for tests, examples, and
-single-process deployments. It does not persist allocations across restarts. A durable,
-multi-process registry (for example one backed by Postgres) can be added by implementing
-the same interface; the node algorithm is unchanged.
+single-process deployments. It does not persist allocations across restarts.
+
+### Memory
+
+```go
+import "github.com/from-cero/crid/registry/memory"
+
+reg := memory.New()
+```
+
+### Postgres
+
+For durable, multi-process deployments, `registry/postgres` backs the registry with
+PostgreSQL. Allocations are persisted, so a block is never handed out twice even across
+restarts, and uniqueness holds for every node sharing the same database. It is a separate
+module (so the core stays dependency-free) and uses the [pgx](https://github.com/jackc/pgx)
+driver:
+
+```sh
+go get -u github.com/from-cero/crid/registry/postgres
+```
+
+```go
+import (
+    "github.com/from-cero/crid"
+    "github.com/from-cero/crid/registry/postgres"
+    "github.com/jackc/pgx/v5/pgxpool"
+)
+
+pool, err := pgxpool.New(ctx, dsn)
+if err != nil {
+    log.Fatal(err)
+}
+defer pool.Close()
+
+reg, err := postgres.New(pool)
+if err != nil {
+    log.Fatal(err)
+}
+// Create the table once at startup, or manage it with migrations instead.
+if err := reg.EnsureSchema(ctx); err != nil {
+    log.Fatal(err)
+}
+
+node, err := crid.New(reg)
+```
+
+`New` accepts any value satisfying its `Querier` interface (`*pgxpool.Pool`, `*pgx.Conn`,
+or `pgx.Tx`). The table name defaults to `crid_allocations` and can be overridden with
+`postgres.WithTable("schema.table")`. Each `Allocate` is a single atomic UPSERT, so
+concurrent callers across all processes receive non-overlapping blocks. The schema is:
+
+```sql
+CREATE TABLE IF NOT EXISTS crid_allocations (
+    ts       BIGINT PRIMARY KEY,
+    next_seq BIGINT NOT NULL
+);
+```
+
+A durable registry on any other backend can be added the same way, by implementing the
+`registry.Registry` interface; the node algorithm is unchanged.
 
 ## Guarantees and caveats
 
