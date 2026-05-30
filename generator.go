@@ -3,13 +3,16 @@ package crid
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/from-cero/crid/registry"
 )
 
 // Node generates unique IDs by combining a timestamp with sequence numbers reserved from a Registry.
+// A Node is safe for concurrent use by multiple goroutines.
 type Node struct {
+	mu    sync.Mutex
 	seq   int64
 	limit int64
 
@@ -49,6 +52,9 @@ func New(reg registry.Registry, opts ...Option) (*Node, error) {
 // Generate returns the next unique ID.
 // Reserving a new block of sequence numbers from the registry when the current allocation is exhausted.
 func (n *Node) Generate(ctx context.Context) (ID, error) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
 	now := n.nowS()
 	if now < 0 {
 		return 0, ErrClockBeforeEpoch
@@ -75,6 +81,7 @@ func (n *Node) Generate(ctx context.Context) (ID, error) {
 	var idI64 int64
 	idI64 |= now << n.comF.shiftTimestamp
 	idI64 |= n.seq
+	n.seq++
 	return ID(idI64), nil
 }
 
