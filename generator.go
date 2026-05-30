@@ -57,8 +57,8 @@ func New(reg registry.Registry, opts ...Option) (*Node, error) {
 	}, nil
 }
 
-// Generate returns the next unique ID.
-// Reserving a new block of sequence numbers from the registry when the current allocation is exhausted.
+// Generate returns the next unique ID, reserving a new block of sequence numbers
+// from the registry when the current allocation is exhausted.
 func (n *Node) Generate(ctx context.Context) (ID, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()

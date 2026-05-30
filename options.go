@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// Option configures a Node, Parser at creation time.
+// Option configures a Node or Parser at creation time.
 type Option func(*config)
 
 // WithFormat sets the bit layout of generated IDs using the given format options.
