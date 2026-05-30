@@ -9,10 +9,14 @@ import (
 	"github.com/from-cero/crid/registry"
 )
 
-// Node generates unique IDs by combining a timestamp with sequence numbers reserved from a Registry.
+// Node generates unique IDs by combining the timestamp at which a block of sequence numbers
+// was reserved from the Registry with the sequence numbers in that block. The embedded
+// timestamp therefore reflects block-allocation time, not the moment an individual ID is
+// generated, so IDs are not strictly ordered by generation time.
 // A Node is safe for concurrent use by multiple goroutines.
 type Node struct {
 	mu    sync.Mutex
+	ts    int64
 	seq   int64
 	limit int64
 
@@ -55,17 +59,9 @@ func (n *Node) Generate(ctx context.Context) (ID, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	now := n.nowS()
-	if now < 0 {
-		return 0, ErrClockBeforeEpoch
-	}
-	if now > n.comF.maxTimestamp {
-		return 0, ErrTimestampOverflow
-	}
-
 	// allocated range is exhausted
 	if n.seq > n.limit {
-		if err := n.refill(ctx, now); err != nil {
+		if err := n.refill(ctx); err != nil {
 			return 0, err
 		}
 	}
@@ -79,20 +75,30 @@ func (n *Node) Generate(ctx context.Context) (ID, error) {
 	}
 
 	var idI64 int64
-	idI64 |= now << n.comF.shiftTimestamp
+	idI64 |= n.ts << n.comF.shiftTimestamp
 	idI64 |= n.seq
 	n.seq++
 	return ID(idI64), nil
 }
 
-func (n *Node) refill(ctx context.Context, ts int64) error {
-	start, err := n.reg.Allocate(ctx, ts, n.blockSize)
+func (n *Node) refill(ctx context.Context) error {
+	now := n.nowS()
+	if now < 0 {
+		return ErrClockBeforeEpoch
+	}
+	if now > n.comF.maxTimestamp {
+		return ErrTimestampOverflow
+	}
+
+	start, err := n.reg.Allocate(ctx, now, n.blockSize)
 	if err != nil {
 		return fmt.Errorf("could not refill allocation: %w", err)
 	}
 	if start > n.comF.maxSeq {
 		return ErrSequenceOverflow
 	}
+
+	n.ts = now
 	n.seq = start
 	n.limit = min(start+n.blockSize-1, n.comF.maxSeq)
 	return nil
