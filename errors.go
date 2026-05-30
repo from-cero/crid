@@ -1,8 +1,6 @@
 package crid
 
-import (
-	"errors"
-)
+import "errors"
 
 var (
 	// ErrInvalidConfig is returned when New is called with a config that fails validation.
