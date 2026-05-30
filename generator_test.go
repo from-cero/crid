@@ -141,7 +141,9 @@ func TestGenerate_SequenceOverflow(t *testing.T) {
 	reg := &fakeRegistry{allocFn: func(_, _ int64) (int64, error) {
 		return 1_000_000, nil
 	}}
-	n, err := New(reg, WithFormat(WithTimestampBits(62), WithSequenceBits(1)))
+	// blockSize must not exceed the format's max sequence number (1 here), and
+	// threshold must not exceed blockSize, so pin both to keep the config valid.
+	n, err := New(reg, WithFormat(WithTimestampBits(62), WithSequenceBits(1)), WithBlockSize(1), WithThreshold(0))
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
