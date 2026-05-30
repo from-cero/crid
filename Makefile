@@ -26,4 +26,4 @@ test:
 test-coverage:
 	go test -race -coverprofile=coverage.out ./... && go tool cover -html=coverage.out
 
-verify: format lint test
+precommit: format lint test
