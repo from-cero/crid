@@ -1,8 +1,8 @@
 package crid
 
 import (
+	"errors"
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -57,22 +57,22 @@ func applyOptions(opts []Option) config {
 }
 
 func (c *config) validate() error {
-	var errs []string
+	var errs []error
 	if err := c.format.validate(); err != nil {
-		errs = append(errs, err.Error())
+		errs = append(errs, err)
 	}
 	if c.epoch.After(time.Now()) {
-		errs = append(errs, ErrEpochInFuture.Error())
+		errs = append(errs, ErrEpochInFuture)
 	}
 	if c.blockSize < 1 {
-		errs = append(errs, ErrInvalidBlockSize.Error())
+		errs = append(errs, ErrInvalidBlockSize)
 	}
 	if c.threshold > c.blockSize {
-		errs = append(errs, ErrInvalidThreshold.Error())
+		errs = append(errs, ErrInvalidThreshold)
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("%w: %s", ErrInvalidConfig, strings.Join(errs, ", "))
+		return fmt.Errorf("%w: %w", ErrInvalidConfig, errors.Join(errs...))
 	}
 	return nil
 }
