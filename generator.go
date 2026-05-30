@@ -8,6 +8,7 @@ import (
 	"github.com/from-cero/crid/registry"
 )
 
+// Node generates unique IDs by combining a timestamp with sequence numbers reserved from a Registry.
 type Node struct {
 	seq   int64
 	limit int64
@@ -19,6 +20,7 @@ type Node struct {
 	blockSize int64
 }
 
+// New creates a Node backed by reg, applying any options on top of the defaults.
 func New(reg registry.Registry, opts ...Option) (*Node, error) {
 	cfg := applyOptions(opts)
 	if err := cfg.validate(); err != nil {
@@ -44,6 +46,8 @@ func New(reg registry.Registry, opts ...Option) (*Node, error) {
 	}, nil
 }
 
+// Generate returns the next unique ID.
+// Reserving a new block of sequence numbers from the registry when the current allocation is exhausted.
 func (n *Node) Generate(ctx context.Context) (ID, error) {
 	now := n.nowS()
 	if now < 0 {

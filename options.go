@@ -6,16 +6,23 @@ import (
 	"time"
 )
 
+// Option configures a Node, Parser at creation time.
 type Option func(*config)
 
+// WithFormat sets the bit layout of generated IDs using the given format options.
+// By default, the timestamp/sequence split from defaultFormat is used.
 func WithFormat(opts ...FormatOption) Option {
 	return func(c *config) { c.format = applyFormatOptions(opts) }
 }
 
+// WithEpoch sets the reference time from which timestamps are measured.
+// The epoch must not be in the future. The default is 2026-01-01 00:00:00 UTC.
 func WithEpoch(e time.Time) Option {
 	return func(c *config) { c.epoch = e }
 }
 
+// WithBlockSize sets the number of sequence numbers a Node reserves from the
+// registry per allocation. It must be positive. The default is 10,000.
 func WithBlockSize(b int64) Option {
 	return func(c *config) { c.blockSize = b }
 }

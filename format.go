@@ -1,13 +1,16 @@
 package crid
 
+// FormatOption configures the bit layout of generated IDs.
 type FormatOption func(*format)
 
+// WithTimestampBits sets the number of bits used for the timestamp component.
 func WithTimestampBits(bits uint8) FormatOption {
 	return func(f *format) {
 		f.timestampBits = bits
 	}
 }
 
+// WithSequenceBits sets the number of bits used for the sequence component.
 func WithSequenceBits(bits uint8) FormatOption {
 	return func(f *format) {
 		f.sequenceBits = bits
