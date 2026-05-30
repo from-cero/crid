@@ -75,12 +75,12 @@ func (n *Node) Generate(ctx context.Context) (ID, error) {
 	// allocated range is exhausted
 	if n.seq > n.limit {
 		if err := n.refill(ctx); err != nil {
-			return 0, err
+			return ID(-1), err
 		}
 	}
 
 	if n.seq < 0 || n.seq > n.comF.maxSeq {
-		return 0, ErrInvalidSequence
+		return ID(-1), ErrInvalidSequence
 	}
 
 	var idI64 int64
