@@ -18,9 +18,17 @@ func main() {
 		log.Fatalf("failed to create node: %v", err)
 	}
 
-	id, err := node.Generate(ctx)
+	parser, err := crid.NewParser()
 	if err != nil {
-		log.Fatalf("failed to generate ID: %v", err)
+		fmt.Printf("failed to create parser: %v", err)
+		return
 	}
-	fmt.Println(id.String())
+
+	for i := 0; i < 5; i++ {
+		id, err := node.Generate(ctx)
+		if err != nil {
+			log.Fatalf("failed to generate ID: %v", err)
+		}
+		fmt.Printf("%s -> %s\n", id.String(), parser.Parse(id))
+	}
 }
