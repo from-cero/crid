@@ -94,7 +94,7 @@ func (n *Node) refill(ctx context.Context) error {
 	if n.preAlloc != nil {
 		// this algorithm focuses on the ID uniqueness and correctness
 		// so the change stale ts when updating n.ts with preAlloc.ts is accepted
-		n.ts = n.preAlloc.ts
+		n.ts = n.preAlloc.timestamp
 		n.seq = n.preAlloc.start
 		n.limit = min(n.preAlloc.end-1, n.comF.maxSeq)
 		n.preAlloc = nil
@@ -106,7 +106,7 @@ func (n *Node) refill(ctx context.Context) error {
 		return fmt.Errorf("allocate block failed: %w", err)
 	}
 
-	n.ts = alloc.ts
+	n.ts = alloc.timestamp
 	n.seq = alloc.start
 	n.limit = min(alloc.end-1, n.comF.maxSeq)
 	return nil
@@ -148,9 +148,9 @@ func (n *Node) allocate(ctx context.Context) (*allocation, error) {
 	}
 
 	return &allocation{
-		ts:    now,
-		start: start,
-		end:   start + n.blockSize,
+		timestamp: now,
+		start:     start,
+		end:       start + n.blockSize,
 	}, nil
 }
 
