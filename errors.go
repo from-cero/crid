@@ -11,7 +11,7 @@ var (
 
 	// ErrEpochInFuture is returned when cfg.epoch is the time
 	// after the current system time at the time of Node creation.
-	ErrEpochInFuture = errors.New("epoch in future")
+	ErrEpochInFuture = errors.New("configured epoch is in the future")
 
 	// ErrInvalidBlockSize is returned when cfg.blockSize is not a positive integer
 	// or exceeds the maximum sequence number for the given format (2^format.sequenceBits).
