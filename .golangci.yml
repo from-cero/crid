@@ -27,6 +27,10 @@ linters:
     - goconst
 
   settings:
+    revive:
+      rules:
+        - name: package-comments
+          disabled: true
     gocritic:
       disable-all: false
       enabled-checks:
