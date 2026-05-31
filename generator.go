@@ -79,7 +79,7 @@ func (n *Node) Generate(ctx context.Context) (ID, error) {
 		}
 	}
 
-	if n.seq < 0 || n.seq > n.comF.maxSeq {
+	if n.seq < 0 || n.seq > n.comF.maxSequence {
 		return ID(-1), ErrInvalidSequence
 	}
 
@@ -96,7 +96,7 @@ func (n *Node) refill(ctx context.Context) error {
 		// so the change stale ts when updating n.ts with preAlloc.ts is accepted
 		n.ts = n.preAlloc.timestamp
 		n.seq = n.preAlloc.start
-		n.limit = min(n.preAlloc.end-1, n.comF.maxSeq)
+		n.limit = min(n.preAlloc.end-1, n.comF.maxSequence)
 		n.preAlloc = nil
 		return nil
 	}
@@ -108,7 +108,7 @@ func (n *Node) refill(ctx context.Context) error {
 
 	n.ts = alloc.timestamp
 	n.seq = alloc.start
-	n.limit = min(alloc.end-1, n.comF.maxSeq)
+	n.limit = min(alloc.end-1, n.comF.maxSequence)
 	return nil
 }
 
@@ -143,7 +143,7 @@ func (n *Node) allocate(ctx context.Context) (*allocation, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not refill allocation: %w", err)
 	}
-	if start > n.comF.maxSeq {
+	if start > n.comF.maxSequence {
 		return nil, ErrSequenceOverflow
 	}
 

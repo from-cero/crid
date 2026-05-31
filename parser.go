@@ -29,7 +29,7 @@ func (p *Parser) Parse(id ID) ParsedID {
 func parseWith(id ID, epoch time.Time, comF compiledFormat) ParsedID {
 	idI64 := int64(id)
 	ts := (idI64 >> comF.shiftTimestamp) & comF.maxTimestamp
-	seq := idI64 & comF.maxSeq
+	seq := idI64 & comF.maxSequence
 	return ParsedID{
 		Timestamp: epoch.Add(time.Duration(ts) * time.Second),
 		Sequence:  seq,
