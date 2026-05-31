@@ -13,10 +13,12 @@ func TestApplyFormatOptions_Defaults(t *testing.T) {
 }
 
 func TestApplyFormatOptions_Overrides(t *testing.T) {
-	f := applyFormatOptions([]FormatOption{
-		WithTimestampBits(41),
-		WithSequenceBits(22),
-	})
+	f := applyFormatOptions(
+		[]FormatOption{
+			WithTimestampBits(41),
+			WithSequenceBits(22),
+		},
+	)
 	if f.timestampBits != 41 {
 		t.Errorf("timestampBits = %d, want 41", f.timestampBits)
 	}
@@ -40,19 +42,21 @@ func TestFormat_Validate(t *testing.T) {
 		{"sum 64", 32, 32, true},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := format{timestampBits: tt.timestampBits, sequenceBits: tt.sequenceBits}
-			err := f.validate()
-			if tt.wantErr {
-				if !errors.Is(err, ErrInvalidBitFormat) {
-					t.Errorf("validate() = %v, want ErrInvalidBitFormat", err)
+		t.Run(
+			tt.name, func(t *testing.T) {
+				f := format{timestampBits: tt.timestampBits, sequenceBits: tt.sequenceBits}
+				err := f.validate()
+				if tt.wantErr {
+					if !errors.Is(err, ErrInvalidBitFormat) {
+						t.Errorf("validate() = %v, want ErrInvalidBitFormat", err)
+					}
+					return
 				}
-				return
-			}
-			if err != nil {
-				t.Errorf("validate() = %v, want nil", err)
-			}
-		})
+				if err != nil {
+					t.Errorf("validate() = %v, want nil", err)
+				}
+			},
+		)
 	}
 }
 
@@ -80,17 +84,19 @@ func TestFormat_CompileFormat(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := tt.f.compileFormat()
-			if c.shiftTimestamp != tt.wantShift {
-				t.Errorf("shiftTimestamp = %d, want %d", c.shiftTimestamp, tt.wantShift)
-			}
-			if c.maxTimestamp != tt.wantMaxTime {
-				t.Errorf("maxTimestamp = %d, want %d", c.maxTimestamp, tt.wantMaxTime)
-			}
-			if c.maxSeq != tt.wantMaxSeq {
-				t.Errorf("maxSeq = %d, want %d", c.maxSeq, tt.wantMaxSeq)
-			}
-		})
+		t.Run(
+			tt.name, func(t *testing.T) {
+				c := tt.f.compileFormat()
+				if c.shiftTimestamp != tt.wantShift {
+					t.Errorf("shiftTimestamp = %d, want %d", c.shiftTimestamp, tt.wantShift)
+				}
+				if c.maxTimestamp != tt.wantMaxTime {
+					t.Errorf("maxTimestamp = %d, want %d", c.maxTimestamp, tt.wantMaxTime)
+				}
+				if c.maxSequence != tt.wantMaxSeq {
+					t.Errorf("maxSeq = %d, want %d", c.maxSequence, tt.wantMaxSeq)
+				}
+			},
+		)
 	}
 }

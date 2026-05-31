@@ -46,7 +46,7 @@ func (f *format) validate() error {
 type compiledFormat struct {
 	shiftTimestamp uint8
 	maxTimestamp   int64
-	maxSeq         int64
+	maxSequence    int64
 }
 
 func (f *format) compileFormat() compiledFormat {
@@ -57,6 +57,6 @@ func (f *format) compileFormat() compiledFormat {
 	return compiledFormat{
 		shiftTimestamp: st,
 		maxTimestamp:   mask(f.timestampBits),
-		maxSeq:         mask(f.sequenceBits),
+		maxSequence:    mask(f.sequenceBits),
 	}
 }
