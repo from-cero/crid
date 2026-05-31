@@ -89,10 +89,9 @@ func New(db Querier, opts ...Option) (*Registry, error) {
 	// name regardless of whether the table is schema-qualified. RETURNING yields the
 	// post-update next_seq; Allocate subtracts blockSize to recover the block start.
 	r.allocateSQL = fmt.Sprintf(
-		"INSERT INTO %s AS t (ts, next_seq) VALUES ($1, $2) "+
-			"ON CONFLICT (ts) DO UPDATE SET next_seq = t.next_seq + $2 "+
-			"RETURNING t.next_seq",
-		r.table,
+		`INSERT INTO %s AS t (ts, next_seq) VALUES ($1, $2)
+		ON CONFLICT (ts) DO UPDATE SET next_seq = t.next_seq + $2
+		RETURNING t.next_seq`, r.table,
 	)
 	r.createSQL = fmt.Sprintf(
 		"CREATE TABLE IF NOT EXISTS %s (ts BIGINT PRIMARY KEY, next_seq BIGINT NOT NULL)",
