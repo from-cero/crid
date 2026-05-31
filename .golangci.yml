@@ -15,7 +15,14 @@ linters:
     - errorlint
     - err113
 
+    # logic & runtime safety
+    - copyloopvar
+    - forcetypeassert
+    - nilnil
+    - nilerr
+
     # code quality & maintainability
+    - revive
     - gocritic
     - goconst
 
