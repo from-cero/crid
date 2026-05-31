@@ -3,7 +3,11 @@ package memory
 import (
 	"context"
 	"sync"
+
+	"github.com/from-cero/crid/registry"
 )
+
+var _ registry.Registry = (*Registry)(nil)
 
 // Registry is intended for testing, examples, and single-process deployments.
 // !! Allocations are not persisted across restarts.
