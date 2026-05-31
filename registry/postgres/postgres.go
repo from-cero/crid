@@ -94,7 +94,7 @@ func New(db Querier, opts ...Option) (*Registry, error) {
 		RETURNING t.next_seq`, r.table,
 	)
 	r.createSQL = fmt.Sprintf(
-		"CREATE TABLE IF NOT EXISTS %s (ts BIGINT PRIMARY KEY, next_seq BIGINT NOT NULL)",
+		`CREATE TABLE IF NOT EXISTS %s (ts BIGINT PRIMARY KEY, next_seq BIGINT NOT NULL)`,
 		r.table,
 	)
 
