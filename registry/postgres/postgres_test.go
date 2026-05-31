@@ -17,7 +17,7 @@ import (
 
 // --- unit tests (no database) -------------------------------------------------
 
-// valRow scans a single int64, modelling the RETURNING value of the UPSERT.
+// valRow scans a single int64, modeling the RETURNING value of the UPSERT.
 type valRow struct{ v int64 }
 
 func (r valRow) Scan(dest ...any) error {
@@ -25,7 +25,7 @@ func (r valRow) Scan(dest ...any) error {
 	return nil
 }
 
-// errRow fails on Scan, modelling a query error.
+// errRow fails on Scan, modeling a query error.
 type errRow struct{ err error }
 
 func (r errRow) Scan(...any) error { return r.err }
@@ -293,7 +293,7 @@ func TestIntegration(t *testing.T) {
 			if _, err := reg.Allocate(ctx, ts, 100); err != nil {
 				t.Fatalf("Allocate() error = %v", err)
 			}
-			// A brand new Registry (as after a process restart) must continue the counter
+			// A brand-new Registry (as after a process restart) must continue the counter
 			// stored in Postgres, never reusing the block already handed out.
 			reg2, err := New(pool, WithTable(table))
 			if err != nil {
