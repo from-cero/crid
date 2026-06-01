@@ -67,8 +67,8 @@ func (f *fakeDB) Exec(_ context.Context, sql string, _ ...any) (pgconn.CommandTa
 }
 
 func TestNew_Validation(t *testing.T) {
-	if _, err := New(nil); !errors.Is(err, ErrNilQuerier) {
-		t.Errorf("New(nil) error = %v, want ErrNilQuerier", err)
+	if _, err := New(nil); !errors.Is(err, ErrNilDB) {
+		t.Errorf("New(nil) error = %v, want ErrNilDB", err)
 	}
 
 	bad := []string{"", "1abc", "no-dash", "two.dots.here", "drop;table", "a b", "tbl$"}

@@ -222,7 +222,7 @@ if err := reg.EnsureSchema(ctx); err != nil {
 node, err := crid.New(reg)
 ```
 
-`New` accepts any value satisfying its `Querier` interface (`*pgxpool.Pool`, `*pgx.Conn`,
+`New` accepts any value satisfying its `DB` interface (`*pgxpool.Pool`, `*pgx.Conn`,
 or `pgx.Tx`). The table name defaults to `crid_allocations` and can be overridden with
 `postgres.WithTable("schema.table")`. Each `Allocate` is a single atomic UPSERT, so
 concurrent callers across all processes receive non-overlapping blocks. The schema is:
