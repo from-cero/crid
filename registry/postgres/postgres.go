@@ -4,7 +4,7 @@
 // for every node sharing the same database and table.
 //
 // The registry talks to Postgres through the pgx driver. Construct it with a
-// *pgxpool.Pool (or any pgx connection or transaction that satisfies Querier):
+// *pgxpool.Pool (or any pgx connection or transaction that satisfies DB):
 //
 //	pool, err := pgxpool.New(ctx, dsn)
 //	if err != nil {
@@ -36,10 +36,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// Querier is the subset of the pgx API the registry depends on. It is satisfied by
+// DB is the subset of the pgx API the registry depends on. It is satisfied by
 // *pgxpool.Pool, *pgx.Conn, and pgx.Tx, so the registry can run on a connection pool,
 // a single connection, or inside a caller-managed transaction.
-type Querier interface {
+type DB interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
@@ -55,7 +55,7 @@ var validTable = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0
 // Registry is a registry.Registry backed by Postgres. It is safe for concurrent use by
 // multiple goroutines and across multiple processes sharing the same database and table.
 type Registry struct {
-	db          Querier
+	db          DB
 	table       string
 	allocateSQL string
 	createSQL   string
@@ -72,14 +72,14 @@ func WithTable(name string) Option { return func(r *Registry) { r.table = name }
 // New returns a Registry that allocates sequence blocks from db, which is typically a
 // *pgxpool.Pool. The returned Registry does not create its table; call EnsureSchema once
 // at startup, or create the table out of band (see EnsureSchema for the schema).
-func New(db Querier, opts ...Option) (*Registry, error) {
+func New(db DB, opts ...Option) (*Registry, error) {
 	r := &Registry{db: db, table: defaultTable}
 	for _, opt := range opts {
 		opt(r)
 	}
 
 	if db == nil {
-		return nil, ErrNilQuerier
+		return nil, ErrNilDB
 	}
 	if !validTable.MatchString(r.table) {
 		return nil, fmt.Errorf("%w: %q", ErrInvalidTable, r.table)

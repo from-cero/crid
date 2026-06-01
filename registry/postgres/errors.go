@@ -3,8 +3,8 @@ package postgres
 import "errors"
 
 var (
-	// ErrNilQuerier is returned when New is called with a nil Querier.
-	ErrNilQuerier = errors.New("querier cannot be nil")
+	// ErrNilDB is returned when New is called with a nil DB.
+	ErrNilDB = errors.New("db cannot be nil")
 
 	// ErrInvalidTable is returned when New is called with a table name that is not a
 	// valid SQL identifier (optionally schema-qualified).
