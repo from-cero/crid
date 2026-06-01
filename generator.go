@@ -103,7 +103,7 @@ func (n *Node) refill(ctx context.Context) error {
 
 	alloc, err := n.allocate(ctx)
 	if err != nil {
-		return fmt.Errorf("allocate block failed: %w", err)
+		return fmt.Errorf("allocate block: %w", err)
 	}
 
 	n.ts = alloc.timestamp
