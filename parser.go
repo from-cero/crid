@@ -4,8 +4,8 @@ import "time"
 
 // Parser decodes IDs without requiring a running Node.
 type Parser struct {
-	cfg  config
-	comF compiledFormat
+	cfg  *config
+	comF *compiledFormat
 }
 
 // NewParser creates a Parser configured with the given options.
@@ -26,7 +26,7 @@ func (p *Parser) Parse(id ID) ParsedID {
 	return parseWith(id, p.cfg.epoch, p.comF)
 }
 
-func parseWith(id ID, epoch time.Time, comF compiledFormat) ParsedID {
+func parseWith(id ID, epoch time.Time, comF *compiledFormat) ParsedID {
 	idI64 := int64(id)
 	ts := (idI64 >> comF.shiftTimestamp) & comF.maxTimestamp
 	seq := idI64 & comF.maxSequence

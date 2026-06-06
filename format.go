@@ -49,12 +49,12 @@ type compiledFormat struct {
 	maxSequence    int64
 }
 
-func (f *format) compileFormat() compiledFormat {
+func (f *format) compileFormat() *compiledFormat {
 	st := f.sequenceBits
 	mask := func(bits uint8) int64 {
 		return (int64(1) << bits) - 1
 	}
-	return compiledFormat{
+	return &compiledFormat{
 		shiftTimestamp: st,
 		maxTimestamp:   mask(f.timestampBits),
 		maxSequence:    mask(f.sequenceBits),

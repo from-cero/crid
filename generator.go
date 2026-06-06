@@ -22,8 +22,8 @@ type Node struct {
 	preAlloc      *allocation
 	preAllocating bool
 
-	cfg       config
-	comF      compiledFormat
+	cfg       *config
+	comF      *compiledFormat
 	reg       registry.Registry
 	epochS    int64
 	blockSize int64
