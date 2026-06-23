@@ -197,6 +197,8 @@ driver:
 go get -u github.com/from-cero/crid/registry/postgres
 ```
 
+Requires Go 1.26 or newer and `github.com/jackc/pgx/v5` (v5.10.0 or newer).
+
 ```go
 import (
     "github.com/from-cero/crid"
@@ -210,7 +212,7 @@ if err != nil {
 }
 defer pool.Close()
 
-reg, err := postgres.New(pool)
+reg, err := postgres.New(pool, postgres.WithTable("crid_example_allocations"))
 if err != nil {
     log.Fatal(err)
 }
