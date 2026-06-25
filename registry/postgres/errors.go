@@ -15,4 +15,7 @@ var (
 
 	// ErrEnsureSchema is returned when EnsureSchema fails to create the table.
 	ErrEnsureSchema = errors.New("ensure schema failed")
+
+	// ErrEvict is returned when EvictBefore fails to delete rows from Postgres.
+	ErrEvict = errors.New("evict failed")
 )
