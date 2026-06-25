@@ -10,7 +10,6 @@ import (
 type Option func(*config)
 
 // WithFormat sets the bit layout of generated IDs using the given format options.
-// By default, the timestamp/sequence split from defaultFormat is used.
 func WithFormat(opts ...FormatOption) Option {
 	return func(c *config) { c.format = applyFormatOptions(opts) }
 }
