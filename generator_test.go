@@ -175,6 +175,61 @@ func TestGenerate_PrefillErrorIgnored(t *testing.T) {
 	}
 }
 
+func TestGenerate_PrefillErrorHandler(t *testing.T) {
+	reg := &fakeRegistry{}
+	reg.allocFn = func(_, _ int64) (int64, error) {
+		if reg.callCount == 1 {
+			return 0, nil
+		}
+		return 0, errors.New("prefill boom")
+	}
+
+	var (
+		mu      sync.Mutex
+		hookErr error
+	)
+	n, err := New(
+		reg,
+		WithBlockSize(10),
+		WithThreshold(5),
+		WithPrefillErrorHandler(func(e error) {
+			mu.Lock()
+			hookErr = e
+			mu.Unlock()
+		}),
+	)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	for range 10 {
+		if _, err := n.Generate(context.Background()); err != nil {
+			t.Fatalf("Generate() error = %v", err)
+		}
+	}
+
+	for range 100 {
+		runtime.Gosched()
+	}
+
+	mu.Lock()
+	got := hookErr
+	mu.Unlock()
+
+	if got == nil {
+		t.Error("onPrefillError was not called")
+	}
+}
+
+func TestNode_Close(t *testing.T) {
+	n, err := New(memory.New())
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	n.Close()
+	n.Close() // idempotent
+}
+
 func TestGenerate_Concurrent(t *testing.T) {
 	n, err := New(memory.New(), WithBlockSize(50), WithThreshold(25))
 	if err != nil {
