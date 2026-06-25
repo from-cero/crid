@@ -86,9 +86,9 @@ func New(db DB, opts ...Option) (*Registry, error) {
 	return r, nil
 }
 
-// EnsureSchema creates the registry's table if it does not already exist. It is a
-// convenience for development and simple deployments; production schemas are usually
-// managed by migrations.
+// EnsureSchema creates the registry's table if it does not already exist.
+// It is a convenience for development and simple deployments.
+// Production schemas are usually managed by migrations.
 func (r *Registry) EnsureSchema(ctx context.Context) error {
 	sql := fmt.Sprintf(
 		`CREATE TABLE IF NOT EXISTS %s (ts BIGINT PRIMARY KEY, next_seq BIGINT NOT NULL)`,
@@ -98,6 +98,23 @@ func (r *Registry) EnsureSchema(ctx context.Context) error {
 		return fmt.Errorf("%w: %w", ErrEnsureSchema, err)
 	}
 	return nil
+}
+
+// VerifySchema reports whether the registry's table already exists. Use it to fail fast
+// at startup when the schema is managed out of band (by migrations) rather than created
+// with EnsureSchema. The table name is resolved against the connection's search_path the
+// same way Allocate resolves it, so a bare name and a schema-qualified name behave
+// consistently across both calls.
+func (r *Registry) VerifySchema(ctx context.Context) (bool, error) {
+	const sql = `SELECT EXISTS (
+		SELECT 1 FROM pg_class c
+		WHERE c.oid = to_regclass($1) AND c.relkind IN ('r', 'p')
+	)`
+	var exists bool
+	if err := r.db.QueryRow(ctx, sql, r.table).Scan(&exists); err != nil {
+		return false, fmt.Errorf("%w: %w", ErrVerifySchema, err)
+	}
+	return exists, nil
 }
 
 // EvictBefore deletes all allocation rows for timestamps strictly before cutoff.

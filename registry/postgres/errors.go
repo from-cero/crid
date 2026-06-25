@@ -16,6 +16,9 @@ var (
 	// ErrEnsureSchema is returned when EnsureSchema fails to create the table.
 	ErrEnsureSchema = errors.New("ensure schema failed")
 
+	// ErrVerifySchema is returned when VerifySchema fails to check whether the table exists.
+	ErrVerifySchema = errors.New("verify schema failed")
+
 	// ErrEvict is returned when EvictBefore fails to delete rows from Postgres.
 	ErrEvict = errors.New("evict failed")
 )

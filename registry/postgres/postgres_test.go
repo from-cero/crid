@@ -30,6 +30,14 @@ type errRow struct{ err error }
 
 func (r errRow) Scan(...any) error { return r.err }
 
+// boolRow scans a single bool, modeling the result of VerifySchema's existence query.
+type boolRow struct{ v bool }
+
+func (r boolRow) Scan(dest ...any) error {
+	*dest[0].(*bool) = r.v
+	return nil
+}
+
 // fakeDB is a stand-in for *pgxpool.Pool. It simulates the per-timestamp counter the
 // real UPSERT maintains so the Go-side arithmetic and argument passing can be tested
 // without a database. Real atomicity is covered by the integration test below.
@@ -42,6 +50,7 @@ type fakeDB struct {
 	execArgs []any
 	queryErr error
 	execErr  error
+	exists   bool // value returned for VerifySchema's existence query
 }
 
 func newFakeDB() *fakeDB { return &fakeDB{next: make(map[int64]int64)} }
@@ -53,6 +62,9 @@ func (f *fakeDB) QueryRow(_ context.Context, sql string, args ...any) pgx.Row {
 	f.lastArgs = args
 	if f.queryErr != nil {
 		return errRow{f.queryErr}
+	}
+	if strings.Contains(sql, "to_regclass") {
+		return boolRow{f.exists}
 	}
 	ts := args[0].(int64)
 	blockSize := args[1].(int64)
@@ -183,6 +195,45 @@ func TestEnsureSchema(t *testing.T) {
 	}
 }
 
+func TestVerifySchema(t *testing.T) {
+	db := newFakeDB()
+	reg, err := New(db, WithTable("app.crid_allocations"))
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	// The query must bind the table name (never interpolate it) and resolve it the same
+	// way Allocate does, via to_regclass.
+	db.exists = true
+	ok, err := reg.VerifySchema(context.Background())
+	if err != nil {
+		t.Fatalf("VerifySchema() error = %v", err)
+	}
+	if !ok {
+		t.Errorf("VerifySchema() = false, want true")
+	}
+	if !strings.Contains(db.lastSQL, "to_regclass") {
+		t.Errorf("verify SQL %q does not call to_regclass", db.lastSQL)
+	}
+	if strings.Contains(db.lastSQL, "app.crid_allocations") {
+		t.Errorf("verify SQL %q interpolates the table name; it must be bound", db.lastSQL)
+	}
+	if len(db.lastArgs) != 1 || db.lastArgs[0] != "app.crid_allocations" {
+		t.Errorf("verify args = %v, want [app.crid_allocations]", db.lastArgs)
+	}
+
+	// A missing table reports false without an error.
+	db.exists = false
+	if ok, err := reg.VerifySchema(context.Background()); err != nil || ok {
+		t.Errorf("VerifySchema() = (%v, %v), want (false, nil)", ok, err)
+	}
+
+	db.queryErr = errors.New("db error")
+	if _, err := reg.VerifySchema(context.Background()); !errors.Is(err, ErrVerifySchema) {
+		t.Errorf("VerifySchema() error = %v, want wrapping ErrVerifySchema", err)
+	}
+}
+
 func TestEvictBefore(t *testing.T) {
 	db := newFakeDB()
 	reg, err := New(db, WithTable("app.crid_allocations"))
@@ -242,6 +293,28 @@ func TestIntegration(t *testing.T) {
 	t.Cleanup(
 		func() {
 			_, _ = pool.Exec(context.Background(), "DROP TABLE IF EXISTS "+table)
+		},
+	)
+
+	t.Run(
+		"VerifySchema", func(t *testing.T) {
+			// The table was just created by EnsureSchema above.
+			ok, err := reg.VerifySchema(ctx)
+			if err != nil {
+				t.Fatalf("VerifySchema() error = %v", err)
+			}
+			if !ok {
+				t.Errorf("VerifySchema() = false for existing table, want true")
+			}
+
+			// A registry pointed at a table that was never created must report false.
+			absent, err := New(pool, WithTable("crid_allocations_absent"))
+			if err != nil {
+				t.Fatalf("New() error = %v", err)
+			}
+			if ok, err := absent.VerifySchema(ctx); err != nil || ok {
+				t.Errorf("VerifySchema() = (%v, %v) for missing table, want (false, nil)", ok, err)
+			}
 		},
 	)
 
