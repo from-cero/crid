@@ -1,8 +1,8 @@
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/from-cero/crid v0.1.4 h1:/np5YUmq9lXqxMKkTmr+bCgw0zTZ0eeNka5WKQfgfsg=
-github.com/from-cero/crid v0.1.4/go.mod h1:0ODTvfBuQKlT9wQg1Y5CDynS4w1I1TX/PIw9qglwldM=
+github.com/from-cero/crid v0.1.5 h1:aFRxXBQCA4ynjDxnnh5c/qko9/p0CDaupCGVDtNUrL4=
+github.com/from-cero/crid v0.1.5/go.mod h1:0ODTvfBuQKlT9wQg1Y5CDynS4w1I1TX/PIw9qglwldM=
 github.com/jackc/pgpassfile v1.0.0 h1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsIM=
 github.com/jackc/pgpassfile v1.0.0/go.mod h1:CEx0iS5ambNFdcRtxPj5JhEz+xB6uRky5eyVu/W2HEg=
 github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 h1:iCEnooe7UlwOQYpKFhBabPMi4aNAfoODPEFNiAnClxo=
