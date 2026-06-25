@@ -59,64 +59,34 @@ func TestNew_Valid(t *testing.T) {
 }
 
 func TestGenerate_Uniqueness(t *testing.T) {
-	n, err := New(memory.New(), WithBlockSize(100), WithThreshold(0))
-	if err != nil {
-		t.Fatalf("New() error = %v", err)
+	tests := []struct {
+		name      string
+		blockSize int64
+		threshold int64
+		count     int
+	}{
+		{"no prefill, refills across blocks", 10, 0, 35},
+		{"no prefill, large count", 100, 0, 1000},
+		{"with prefill", 10, 5, 100},
 	}
-
-	const count = 1000
-	seen := make(map[ID]struct{}, count)
-	for i := range count {
-		id, err := n.Generate(context.Background())
-		if err != nil {
-			t.Fatalf("Generate() error = %v", err)
-		}
-		if _, dup := seen[id]; dup {
-			t.Fatalf("Generate() produced duplicate ID %d at iteration %d", id, i)
-		}
-		seen[id] = struct{}{}
-	}
-}
-
-func TestGenerate_RefillsAcrossBlocks(t *testing.T) {
-	reg := memory.New()
-	n, err := New(reg, WithBlockSize(10), WithThreshold(0))
-	if err != nil {
-		t.Fatalf("New() error = %v", err)
-	}
-
-	// Generate well past a single block to force multiple refills.
-	seen := make(map[ID]struct{})
-	for i := range 35 {
-		id, err := n.Generate(context.Background())
-		if err != nil {
-			t.Fatalf("Generate() error = %v", err)
-		}
-		if _, dup := seen[id]; dup {
-			t.Fatalf("duplicate ID %d at iteration %d", id, i)
-		}
-		seen[id] = struct{}{}
-	}
-}
-
-func TestGenerate_PrefillTriggered(t *testing.T) {
-	reg := memory.New()
-	// blockSize 10, threshold 5: pre-allocation kicks in within the first block.
-	n, err := New(reg, WithBlockSize(10), WithThreshold(5))
-	if err != nil {
-		t.Fatalf("New() error = %v", err)
-	}
-
-	seen := make(map[ID]struct{})
-	for i := range 100 {
-		id, err := n.Generate(context.Background())
-		if err != nil {
-			t.Fatalf("Generate() error = %v", err)
-		}
-		if _, dup := seen[id]; dup {
-			t.Fatalf("duplicate ID %d at iteration %d", id, i)
-		}
-		seen[id] = struct{}{}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n, err := New(memory.New(), WithBlockSize(tt.blockSize), WithThreshold(tt.threshold))
+			if err != nil {
+				t.Fatalf("New() error = %v", err)
+			}
+			seen := make(map[ID]struct{}, tt.count)
+			for i := range tt.count {
+				id, err := n.Generate(context.Background())
+				if err != nil {
+					t.Fatalf("Generate() error = %v", err)
+				}
+				if _, dup := seen[id]; dup {
+					t.Fatalf("duplicate ID %d at iteration %d", id, i)
+				}
+				seen[id] = struct{}{}
+			}
+		})
 	}
 }
 

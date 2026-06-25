@@ -11,28 +11,22 @@ func TestAllocate_SequentialNonOverlapping(t *testing.T) {
 	ctx := context.Background()
 	const ts = 42
 
-	start1, err := r.Allocate(ctx, ts, 100)
-	if err != nil {
-		t.Fatalf("Allocate() error = %v", err)
+	allocs := []struct {
+		size      int64
+		wantStart int64
+	}{
+		{100, 0},
+		{100, 100},
+		{50, 200},
 	}
-	if start1 != 0 {
-		t.Errorf("first start = %d, want 0", start1)
-	}
-
-	start2, err := r.Allocate(ctx, ts, 100)
-	if err != nil {
-		t.Fatalf("Allocate() error = %v", err)
-	}
-	if start2 != 100 {
-		t.Errorf("second start = %d, want 100", start2)
-	}
-
-	start3, err := r.Allocate(ctx, ts, 50)
-	if err != nil {
-		t.Fatalf("Allocate() error = %v", err)
-	}
-	if start3 != 200 {
-		t.Errorf("third start = %d, want 200", start3)
+	for _, a := range allocs {
+		start, err := r.Allocate(ctx, ts, a.size)
+		if err != nil {
+			t.Fatalf("Allocate() error = %v", err)
+		}
+		if start != a.wantStart {
+			t.Errorf("start = %d, want %d", start, a.wantStart)
+		}
 	}
 }
 
