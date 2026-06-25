@@ -3,7 +3,7 @@ module github.com/from-cero/crid/registry/postgres
 go 1.26
 
 require (
-	github.com/from-cero/crid v0.1.5
+	github.com/from-cero/crid v0.1.6
 	github.com/jackc/pgx/v5 v5.10.0
 )
 
