@@ -55,10 +55,8 @@ var validTable = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0
 // Registry is a registry.Registry backed by Postgres. It is safe for concurrent use by
 // multiple goroutines and across multiple processes sharing the same database and table.
 type Registry struct {
-	db          DB
-	table       string
-	allocateSQL string
-	createSQL   string
+	db    DB
+	table string
 }
 
 // Option configures a Registry at creation time.
@@ -85,33 +83,32 @@ func New(db DB, opts ...Option) (*Registry, error) {
 		return nil, fmt.Errorf("%w: %q", ErrInvalidTable, r.table)
 	}
 
-	// The alias "t" lets the ON CONFLICT clause reference the existing row by a fixed
-	// name regardless of whether the table is schema-qualified. RETURNING yields the
-	// post-update next_seq; Allocate subtracts blockSize to recover the block start.
-	r.allocateSQL = fmt.Sprintf(
-		`INSERT INTO %s AS t (ts, next_seq) VALUES ($1, $2)
-		ON CONFLICT (ts) DO UPDATE SET next_seq = t.next_seq + $2
-		RETURNING t.next_seq`, r.table,
-	)
-	r.createSQL = fmt.Sprintf(
-		`CREATE TABLE IF NOT EXISTS %s (ts BIGINT PRIMARY KEY, next_seq BIGINT NOT NULL)`,
-		r.table,
-	)
-
 	return r, nil
 }
 
 // EnsureSchema creates the registry's table if it does not already exist. It is a
 // convenience for development and simple deployments; production schemas are usually
-// managed by migrations. The table is:
-//
-//	CREATE TABLE IF NOT EXISTS crid_allocations (
-//	    ts       BIGINT PRIMARY KEY,
-//	    next_seq BIGINT NOT NULL
-//	);
+// managed by migrations.
 func (r *Registry) EnsureSchema(ctx context.Context) error {
-	if _, err := r.db.Exec(ctx, r.createSQL); err != nil {
+	sql := fmt.Sprintf(
+		`CREATE TABLE IF NOT EXISTS %s (ts BIGINT PRIMARY KEY, next_seq BIGINT NOT NULL)`,
+		r.table,
+	)
+	if _, err := r.db.Exec(ctx, sql); err != nil {
 		return fmt.Errorf("%w: %w", ErrEnsureSchema, err)
+	}
+	return nil
+}
+
+// EvictBefore deletes all allocation rows for timestamps strictly before cutoff.
+// cutoff is seconds since the Unix epoch, the same unit as the ts column.
+// Rows for timestamps still in use must not be evicted; only call this with a cutoff
+// safely in the past (for example, one hour ago).
+// It is safe to call concurrently with Allocate.
+func (r *Registry) EvictBefore(ctx context.Context, cutoff int64) error {
+	sql := fmt.Sprintf(`DELETE FROM %s WHERE ts < $1`, r.table)
+	if _, err := r.db.Exec(ctx, sql, cutoff); err != nil {
+		return fmt.Errorf("%w: %w", ErrEvict, err)
 	}
 	return nil
 }
@@ -121,8 +118,13 @@ func (r *Registry) EnsureSchema(ctx context.Context) error {
 // concurrent calls for the same timestamp - across every process sharing the table -
 // return non-overlapping blocks.
 func (r *Registry) Allocate(ctx context.Context, timestamp, blockSize int64) (int64, error) {
+	sql := fmt.Sprintf(
+		`INSERT INTO %s AS t (ts, next_seq) VALUES ($1, $2)
+		ON CONFLICT (ts) DO UPDATE SET next_seq = t.next_seq + $2
+		RETURNING t.next_seq`, r.table,
+	)
 	var next int64
-	if err := r.db.QueryRow(ctx, r.allocateSQL, timestamp, blockSize).Scan(&next); err != nil {
+	if err := r.db.QueryRow(ctx, sql, timestamp, blockSize).Scan(&next); err != nil {
 		return 0, fmt.Errorf("%w: %w", ErrAllocate, err)
 	}
 	// next is the post-increment counter; the block we just reserved starts blockSize back.

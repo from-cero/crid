@@ -39,6 +39,7 @@ type fakeDB struct {
 	lastSQL  string
 	lastArgs []any
 	execSQL  string
+	execArgs []any
 	queryErr error
 	execErr  error
 }
@@ -59,10 +60,11 @@ func (f *fakeDB) QueryRow(_ context.Context, sql string, args ...any) pgx.Row {
 	return valRow{f.next[ts]}
 }
 
-func (f *fakeDB) Exec(_ context.Context, sql string, _ ...any) (pgconn.CommandTag, error) {
+func (f *fakeDB) Exec(_ context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.execSQL = sql
+	f.execArgs = args
 	return pgconn.CommandTag{}, f.execErr
 }
 
@@ -178,6 +180,32 @@ func TestEnsureSchema(t *testing.T) {
 	db.execErr = errors.New("nope")
 	if err := reg.EnsureSchema(context.Background()); !errors.Is(err, ErrEnsureSchema) {
 		t.Errorf("EnsureSchema() error = %v, want wrapping ErrEnsureSchema", err)
+	}
+}
+
+func TestEvictBefore(t *testing.T) {
+	db := newFakeDB()
+	reg, err := New(db, WithTable("app.crid_allocations"))
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	const cutoff = int64(100)
+	if err := reg.EvictBefore(context.Background(), cutoff); err != nil {
+		t.Fatalf("EvictBefore() error = %v", err)
+	}
+	for _, want := range []string{"DELETE", "app.crid_allocations", "WHERE ts < $1"} {
+		if !strings.Contains(db.execSQL, want) {
+			t.Errorf("evict SQL %q does not contain %q", db.execSQL, want)
+		}
+	}
+	if len(db.execArgs) != 1 || db.execArgs[0] != cutoff {
+		t.Errorf("evict args = %v, want [%d]", db.execArgs, cutoff)
+	}
+
+	db.execErr = errors.New("db error")
+	if err := reg.EvictBefore(context.Background(), cutoff); !errors.Is(err, ErrEvict) {
+		t.Errorf("EvictBefore() error = %v, want wrapping ErrEvict", err)
 	}
 }
 
@@ -305,6 +333,33 @@ func TestIntegration(t *testing.T) {
 			}
 			if start != 100 {
 				t.Errorf("start after restart = %d, want 100", start)
+			}
+		},
+	)
+
+	t.Run(
+		"EvictBefore", func(t *testing.T) {
+			// Seed two old timestamps and one current-ish one.
+			for _, ts := range []int64{500, 501} {
+				if _, err := reg.Allocate(ctx, ts, 100); err != nil {
+					t.Fatalf("Allocate(ts=%d) error = %v", ts, err)
+				}
+			}
+			if _, err := reg.Allocate(ctx, 502, 100); err != nil {
+				t.Fatalf("Allocate(ts=502) error = %v", err)
+			}
+
+			if err := reg.EvictBefore(ctx, 502); err != nil {
+				t.Fatalf("EvictBefore() error = %v", err)
+			}
+
+			// ts=502 row must survive; its counter continues from 100.
+			start, err := reg.Allocate(ctx, 502, 100)
+			if err != nil {
+				t.Fatalf("Allocate(ts=502) after evict error = %v", err)
+			}
+			if start != 100 {
+				t.Errorf("start for ts=502 after evict = %d, want 100", start)
 			}
 		},
 	)
