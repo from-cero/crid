@@ -170,14 +170,63 @@ if err := reg.EnsureSchema(ctx); err != nil {
 node, err := crid.New(reg)
 ```
 
-`New` accepts `*pgxpool.Pool`, `*pgx.Conn`, or `pgx.Tx`. The table name defaults to `crid_allocations`; override with `postgres.WithTable("schema.table")`. Each `Allocate` is a single atomic UPSERT, so concurrent callers across all processes receive non-overlapping blocks:
+`New` accepts `*pgxpool.Pool`, `*pgx.Conn`, or `pgx.Tx`, so the registry runs on a connection pool, a single connection, or inside a caller-managed transaction. The table name defaults to `crid_allocations`; override it (optionally schema-qualified) with `postgres.WithTable("app.crid_allocations")`. Each `Allocate` is a single atomic `INSERT ... ON CONFLICT` UPSERT, so concurrent callers across all processes receive non-overlapping blocks.
+
+The table holds one row per reserved timestamp:
 
 ```sql
 CREATE TABLE IF NOT EXISTS crid_allocations (
-    ts       BIGINT PRIMARY KEY,
-    next_seq BIGINT NOT NULL
+    ts       BIGINT PRIMARY KEY, -- Unix seconds the block was reserved for
+    next_seq BIGINT NOT NULL     -- next unused sequence number for that ts
 );
 ```
+
+#### Methods
+
+| Method | Purpose |
+|--------|---------|
+| `New(db, opts...)` | Construct a registry. Validates the table name and a non-nil `db`. |
+| `EnsureSchema(ctx)` | Create the table if absent. For development and simple deployments. |
+| `VerifySchema(ctx)` | Report whether the table exists. For schemas managed by migrations. |
+| `EvictBefore(ctx, cutoff)` | Delete allocation rows older than `cutoff`. For housekeeping. |
+| `Allocate(ctx, ts, n)` | Reserve `n` sequence numbers (called by `Node`, rarely directly). |
+
+#### Schema management
+
+For development, let the registry create the table once at startup (`EnsureSchema`, shown above). In production the schema is usually owned by your migration tooling instead. In that case, call `VerifySchema` at startup to fail fast if the table is missing rather than erroring on the first `Generate`:
+
+```go
+ok, err := reg.VerifySchema(ctx)
+if err != nil {
+	log.Fatal(err) // query failed (connectivity, permissions, ...)
+}
+if !ok {
+	log.Fatal("crid table not found; run migrations first")
+}
+```
+
+`VerifySchema` resolves the table name against the connection's `search_path` exactly as `Allocate` does, so bare and schema-qualified names behave consistently. It matches only an ordinary or partitioned table, so an unrelated view, index, or sequence of the same name does not register as a false positive.
+
+#### Reclaiming space
+
+Each distinct timestamp leaves one row behind forever. To keep the table bounded, periodically drop rows for timestamps that can no longer be allocated against:
+
+```go
+// e.g. from a cron job or a ticker; cutoff is Unix seconds.
+cutoff := time.Now().Add(-1 * time.Hour).Unix()
+if err := reg.EvictBefore(ctx, cutoff); err != nil {
+	log.Printf("crid evict: %v", err)
+}
+```
+
+> [!WARNING]
+> Only pass a `cutoff` safely in the past. Evicting a timestamp still in use resets its
+> counter and can hand out a block that overlaps one already issued. One hour ago is a
+> safe margin for the default layout.
+
+#### Errors
+
+All failures wrap a sentinel you can match with `errors.Is`: `ErrNilDB` and `ErrInvalidTable` from `New`; `ErrEnsureSchema`, `ErrVerifySchema`, `ErrEvict`, and `ErrAllocate` from the corresponding calls. The query failures also wrap the underlying pgx error, so the sentinel and the driver detail are both reachable -- `errors.Is(err, postgres.ErrAllocate)` to branch on the operation, `errors.As(err, &pgErr)` (with `*pgconn.PgError`) to inspect the SQLSTATE.
 
 ## Guarantees and caveats
 
