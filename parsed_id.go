@@ -11,7 +11,7 @@ type ParsedID struct {
 	Sequence  int64
 }
 
-// String returns a human-readable representation of the parsed ID components.
+// String returns a human-readable representation of the timestamp and sequence.
 func (p ParsedID) String() string {
 	return "{timestamp: " + p.Timestamp.String() +
 		", sequence: " + strconv.FormatInt(p.Sequence, 10) + "}"

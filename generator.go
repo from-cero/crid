@@ -9,11 +9,9 @@ import (
 	"github.com/from-cero/crid/registry"
 )
 
-// Node generates unique IDs by combining the timestamp at which a block of sequence numbers
-// was reserved from the Registry with the sequence numbers in that block. The embedded
-// timestamp therefore reflects block-allocation time, not the moment an individual ID is
-// generated, so IDs are not strictly ordered by generation time.
-// A Node is safe for concurrent use by multiple goroutines.
+// Node generates unique IDs from sequence blocks reserved in a Registry.
+// The embedded timestamp reflects block-allocation time, not generation time,
+// so IDs are not strictly time-ordered. It is safe for concurrent use by multiple goroutines.
 type Node struct {
 	mu            sync.Mutex
 	ts            int64
@@ -90,6 +88,12 @@ func (n *Node) Generate(ctx context.Context) (ID, error) {
 	return ID(idI64), nil
 }
 
+type allocation struct {
+	timestamp int64
+	start     int64
+	end       int64
+}
+
 func (n *Node) refill(ctx context.Context) error {
 	if n.preAlloc != nil {
 		// this algorithm focuses on the ID uniqueness and correctness
@@ -118,7 +122,7 @@ func (n *Node) prefill(ctx context.Context) {
 		n.mu.Lock()
 		n.preAllocating = false
 		n.mu.Unlock()
-		return // ignore error
+		return // suppress error
 	}
 
 	// need lock before read/write to Node
