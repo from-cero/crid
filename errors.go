@@ -14,8 +14,8 @@ var (
 	ErrEpochInFuture = errors.New("configured epoch is in the future")
 
 	// ErrInvalidBlockSize is returned when cfg.blockSize is not a positive integer
-	// or exceeds the maximum sequence number for the given format (2^format.sequenceBits).
-	ErrInvalidBlockSize = errors.New("block size must be positive and <= max sequence number for the given format")
+	// or exceeds 2^format.sequenceBits.
+	ErrInvalidBlockSize = errors.New("block size must be in [1, 2^sequenceBits]")
 
 	// ErrInvalidThreshold is returned when cfg.threshold exceeds cfg.blockSize.
 	ErrInvalidThreshold = errors.New("threshold must not exceed block size")
