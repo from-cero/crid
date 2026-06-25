@@ -27,11 +27,19 @@ func WithBlockSize(b int64) Option { return func(c *config) { c.blockSize = b } 
 // block size. A value below 1 disables pre-allocation. The default is 5,000.
 func WithThreshold(t int64) Option { return func(c *config) { c.threshold = t } }
 
+// WithPrefillErrorHandler registers fn to be called when an asynchronous pre-allocation
+// fails. fn is invoked from a background goroutine after the Node's mutex is released,
+// so it must not call Generate. The default is nil (errors are silently ignored).
+func WithPrefillErrorHandler(fn func(error)) Option {
+	return func(c *config) { c.onPrefillError = fn }
+}
+
 type config struct {
-	format    format    // Default is crid.defaultFormat
-	epoch     time.Time // Default is 2026-01-01 00:00:00 UTC
-	blockSize int64     // Default is 10,000
-	threshold int64     // Default is 5,000
+	format         format    // Default is crid.defaultFormat
+	epoch          time.Time // Default is 2026-01-01 00:00:00 UTC
+	blockSize      int64     // Default is 10,000
+	threshold      int64     // Default is 5,000
+	onPrefillError func(error)
 }
 
 var defaultConfig = config{

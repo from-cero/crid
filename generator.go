@@ -12,13 +12,18 @@ import (
 // Node generates unique IDs from sequence blocks reserved in a Registry.
 // The embedded timestamp reflects block-allocation time, not generation time,
 // so IDs are not strictly time-ordered. It is safe for concurrent use by multiple goroutines.
+// Call Close when the Node is no longer needed to release its background context.
 type Node struct {
-	mu            sync.Mutex
-	ts            int64
-	seq           int64
-	limit         int64
-	preAlloc      *allocation
-	preAllocating bool
+	mu    sync.Mutex
+	ts    int64
+	seq   int64
+	limit int64
+
+	preAlloc       *allocation
+	prefilling     bool
+	prefillCtx     context.Context
+	prefillCancel  context.CancelFunc
+	onPrefillError func(error)
 
 	cfg       *config
 	comF      *compiledFormat
@@ -39,12 +44,18 @@ func New(reg registry.Registry, opts ...Option) (*Node, error) {
 		return nil, ErrNilRegistry
 	}
 
+	prefillCtx, prefillCancel := context.WithCancel(context.Background())
+
 	return &Node{
-		ts:            0,
-		seq:           0,
-		limit:         -1,
-		preAlloc:      nil,
-		preAllocating: false,
+		ts:    0,
+		seq:   0,
+		limit: -1,
+
+		preAlloc:       nil,
+		prefilling:     false,
+		prefillCtx:     prefillCtx,
+		prefillCancel:  prefillCancel,
+		onPrefillError: cfg.onPrefillError,
 
 		cfg:       cfg,
 		comF:      cfg.format.compileFormat(),
@@ -53,6 +64,12 @@ func New(reg registry.Registry, opts ...Option) (*Node, error) {
 		blockSize: cfg.blockSize,
 		threshold: cfg.threshold,
 	}, nil
+}
+
+// Close cancels any in-flight asynchronous pre-allocation. Generate must not be
+// called after Close.
+func (n *Node) Close() {
+	n.prefillCancel()
 }
 
 // Generate returns the next unique ID, reserving a new block of sequence numbers
@@ -64,9 +81,9 @@ func (n *Node) Generate(ctx context.Context) (ID, error) {
 	// pre-allocate the next range once remaining drops below threshold
 	remaining := n.limit - n.seq + 1
 	if n.limit >= 0 && remaining < n.threshold {
-		if n.preAlloc == nil && !n.preAllocating {
-			n.preAllocating = true
-			go n.prefill(context.Background())
+		if n.preAlloc == nil && !n.prefilling {
+			n.prefilling = true
+			go n.prefill(n.prefillCtx)
 		}
 	}
 
@@ -120,9 +137,12 @@ func (n *Node) prefill(ctx context.Context) {
 	alloc, err := n.allocate(ctx)
 	if err != nil {
 		n.mu.Lock()
-		n.preAllocating = false
+		n.prefilling = false
 		n.mu.Unlock()
-		return // suppress error
+		if n.onPrefillError != nil {
+			n.onPrefillError(err)
+		}
+		return
 	}
 
 	// need lock before read/write to Node
@@ -130,7 +150,7 @@ func (n *Node) prefill(ctx context.Context) {
 	// and may update preAlloc while Generate is running
 	n.mu.Lock()
 	n.preAlloc = alloc
-	n.preAllocating = false
+	n.prefilling = false
 	n.mu.Unlock()
 }
 
