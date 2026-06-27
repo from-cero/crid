@@ -15,6 +15,14 @@ linters:
     - errorlint
     - err113
 
+    # architecture & policy
+    # - depguard
+    - forbidigo
+
+    # resource lifecycle
+    - bodyclose
+    - spancheck
+
     # logic & runtime safety
     - copyloopvar
     - forcetypeassert
@@ -26,7 +34,20 @@ linters:
     - gocritic
     - goconst
 
+    # error correctness
+    - errname
+
+    # style & formatting
+    - tagliatelle
+
   settings:
+    forbidigo:
+      forbid:
+        - pattern: "^fmt\\.Print(ln|f)?$"
+          msg: "use structured logger"
+        - pattern: "^time\\.Sleep$"
+          msg: "blocks goroutine; use context-aware waits"
+
     revive:
       rules:
         - name: package-comments
@@ -44,3 +65,9 @@ linters:
     goconst:
       min-len: 2
       min-occurrences: 3
+
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+          koanf: snake
