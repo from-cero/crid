@@ -176,7 +176,7 @@ The table holds one row per reserved timestamp:
 
 ```sql
 CREATE TABLE IF NOT EXISTS crid_allocations (
-    ts       BIGINT PRIMARY KEY, -- Unix seconds the block was reserved for
+    ts       BIGINT PRIMARY KEY, -- seconds since the configured Node epoch
     next_seq BIGINT NOT NULL     -- next unused sequence number for that ts
 );
 ```
@@ -212,8 +212,10 @@ if !ok {
 Each distinct timestamp leaves one row behind forever. To keep the table bounded, periodically drop rows for timestamps that can no longer be allocated against:
 
 ```go
-// e.g. from a cron job or a ticker; cutoff is Unix seconds.
-cutoff := time.Now().Add(-1 * time.Hour).Unix()
+// Use the same epoch as every Node sharing this registry.
+// This is the default; use your WithEpoch value if configured.
+epoch := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+cutoff := time.Now().Add(-1 * time.Hour).Unix() - epoch.Unix()
 if err := reg.EvictBefore(ctx, cutoff); err != nil {
 	log.Printf("crid evict: %v", err)
 }
@@ -221,8 +223,9 @@ if err := reg.EvictBefore(ctx, cutoff); err != nil {
 
 > [!WARNING]
 > Only pass a `cutoff` safely in the past. Evicting a timestamp still in use resets its
-> counter and can hand out a block that overlaps one already issued. One hour ago is a
-> safe margin for the default layout.
+> counter and can hand out a block that overlaps one already issued. The cutoff must
+> be seconds since the configured Node epoch, not a Unix timestamp. Choose a retention
+> period that exceeds any possible backward clock jump; one hour is only an example.
 
 #### Errors
 
@@ -233,7 +236,7 @@ All failures wrap a sentinel you can match with `errors.Is`: `ErrNilDB` and `Err
 - **Uniqueness** is guaranteed for all nodes sharing one registry, as long as the registry honors non-overlapping blocks per timestamp.
 - **IDs are not time-ordered.** The timestamp reflects when the block was reserved, not when the ID was generated. Async pre-allocation means an ID can carry a slightly earlier timestamp. Do not rely on monotonicity or k-sortability.
 - **Error sentinel.** `Generate` returns `ID(-1)` on failure. Always check the returned error; do not treat `0` as "no ID" (zero is a valid ID).
-- **Clock.** A backward clock jump below the epoch returns `ErrClockBeforeEpoch`. Uniqueness is never affected by clock movement.
+- **Clock.** A backward clock jump below the epoch returns `ErrClockBeforeEpoch`. After eviction, a backward clock jump into an evicted timestamp can reuse sequences and produce duplicate IDs.
 
 ## Errors
 
