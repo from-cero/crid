@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -412,27 +413,35 @@ func TestIntegration(t *testing.T) {
 
 	t.Run(
 		"EvictBefore", func(t *testing.T) {
-			// Seed two old timestamps and one current-ish one.
-			for _, ts := range []int64{500, 501} {
+			epoch := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+			now := epoch.Add(24 * time.Hour)
+			cutoff := now.Add(-time.Hour).Unix() - epoch.Unix()
+			current := now.Unix() - epoch.Unix()
+			for _, ts := range []int64{cutoff - 1, cutoff, current} {
 				if _, err := reg.Allocate(ctx, ts, 100); err != nil {
 					t.Fatalf("Allocate(ts=%d) error = %v", ts, err)
 				}
 			}
-			if _, err := reg.Allocate(ctx, 502, 100); err != nil {
-				t.Fatalf("Allocate(ts=502) error = %v", err)
-			}
 
-			if err := reg.EvictBefore(ctx, 502); err != nil {
+			if err := reg.EvictBefore(ctx, cutoff); err != nil {
 				t.Fatalf("EvictBefore() error = %v", err)
 			}
 
-			// ts=502 row must survive; its counter continues from 100.
-			start, err := reg.Allocate(ctx, 502, 100)
-			if err != nil {
-				t.Fatalf("Allocate(ts=502) after evict error = %v", err)
-			}
-			if start != 100 {
-				t.Errorf("start for ts=502 after evict = %d, want 100", start)
+			for _, tc := range []struct {
+				ts   int64
+				want int64
+			}{
+				{cutoff - 1, 0},
+				{cutoff, 100},
+				{current, 100},
+			} {
+				start, err := reg.Allocate(ctx, tc.ts, 100)
+				if err != nil {
+					t.Fatalf("Allocate(ts=%d) after evict error = %v", tc.ts, err)
+				}
+				if start != tc.want {
+					t.Errorf("start for ts=%d after evict = %d, want %d", tc.ts, start, tc.want)
+				}
 			}
 		},
 	)

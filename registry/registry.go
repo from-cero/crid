@@ -9,6 +9,7 @@ import (
 type Registry interface {
 	// Allocate reserves blockSize sequence numbers for timestamp and returns the
 	// starting value of the reserved block. Successive calls for the same timestamp
-	// must return non-overlapping blocks.
+	// must return non-overlapping blocks. timestamp is seconds since the configured
+	// Node epoch, not a Unix timestamp.
 	Allocate(ctx context.Context, timestamp, blockSize int64) (start int64, err error)
 }

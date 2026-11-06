@@ -118,9 +118,10 @@ func (r *Registry) VerifySchema(ctx context.Context) (bool, error) {
 }
 
 // EvictBefore deletes all allocation rows for timestamps strictly before cutoff.
-// cutoff is seconds since the Unix epoch, the same unit as the ts column.
+// cutoff is seconds since the configured Node epoch, the same unit as the ts column.
+// Compute it as cutoffTime.Unix() - epoch.Unix(), using the epoch shared by all Nodes.
 // Rows for timestamps still in use must not be evicted; only call this with a cutoff
-// safely in the past (for example, one hour ago).
+// safely in the past, beyond any possible backward clock jump.
 // It is safe to call concurrently with Allocate.
 func (r *Registry) EvictBefore(ctx context.Context, cutoff int64) error {
 	sql := fmt.Sprintf(`DELETE FROM %s WHERE ts < $1`, r.table)
